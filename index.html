@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>RESISTE18</title>
+<style>
+*{box-sizing:border-box}
+body,html{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#000;font-family:Arial}
+#game{position:relative;width:100%;height:100%;max-width:480px;max-height:854px;margin:auto;overflow:hidden}
+canvas{display:block;width:100%;height:100%}
+
+/* PANTALLA DE INICIO, FIN Y PAUSA */
+#start, #over, #pause-menu{
+    position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:center;
+    background: url('fondo_cyber.jpeg') center/cover no-repeat;
+    z-index:20;padding:25px;text-align:center;
+}
+#start::before, #over::before, #pause-menu::before{
+    content:'';position:absolute;inset:0;
+    background: rgba(5, 1, 10, 0.82);
+    z-index:1;
+}
+
+.screen{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:center;z-index:20;padding:25px;text-align:center}
+.screen.hidden{display:none !important;}
+
+#btn-settings{
+    position:absolute;top:20px;right:20px;
+    background-color:rgba(255,255,255,0.08);border:2px solid #ff007f;
+    width:48px;height:48px;border-radius:50%;cursor:pointer;
+    box-shadow:0 0 15px rgba(255,0,127,0.6);z-index:25;color:white;font-weight:bold;font-size:18px;
+}
+
+#btn-change-char{
+    position:absolute;top:20px;left:20px;
+    background-color:rgba(255,255,255,0.08);border:2px solid #00e5ff;
+    width:48px;height:48px;border-radius:50%;cursor:pointer;
+    box-shadow:0 0 15px rgba(0,229,255,0.6);z-index:25;color:white;font-weight:bold;font-size:18px;
+}
+
+#btn-pause {
+    position: absolute; top: 15px; left: 15px;
+    background-color: rgba(0,229,255,0.15); border: 2px solid #00e5ff;
+    width: 42px; height: 42px; border-radius: 50%; cursor: pointer;
+    box-shadow: 0 0 12px rgba(0,229,255,0.5); z-index: 10; color: white; font-weight: bold; font-size: 18px;
+    display: none; align-items: center; justify-content: center;
+}
+
+.menu-container{position:relative;display:flex;flex-direction:column;align-items:center;width:100%;max-width:380px;z-index:22}
+
+.game-title{
+    color:#fff;
+    text-shadow: 0 0 10px #ff007f, 0 0 20px #ff007f, 0 0 30px #00e5ff, 0 0 40px #ff007f;
+    font-size:46px;font-weight:900;margin:0 0 10px 0;letter-spacing:2px;
+}
+
+.game-subtitle{color:#dfd5f5;font-size:13px;margin-bottom:15px;line-height:1.5;font-style:italic;max-width:320px;background:rgba(0,0,0,0.65);padding:8px 12px;border-radius:10px;border:1px solid rgba(255,0,127,0.3)}
+
+.record-badge{
+    color: #ffcc00; font-weight: bold; font-size: 15px; margin-bottom: 15px;
+    text-shadow: 0 0 10px rgba(255,204,0,0.6); background: rgba(0,0,0,0.6); padding: 6px 14px; border-radius: 15px; border: 1px solid rgba(255,204,0,0.4);
+}
+
+.char-selector-box{
+    display:flex;align-items:center;gap:10px;background:rgba(0,0,0,0.7);
+    border:1px solid #00e5ff;padding:6px 14px;border-radius:20px;margin-bottom:15px;
+}
+.char-preview-thumb{
+    width:28px;height:28px;object-fit:cover;border-radius:50%;border:1px solid #ff007f;background:#111;
+}
+
+.controls-hint{display:flex;gap:8px;background:rgba(0,0,0,0.65);border:1px solid rgba(0,229,255,0.3);padding:10px 14px;border-radius:12px;color:#ddd;font-size:11px;margin-bottom:20px}
+
+.btn-jugar{
+    width:100%;max-width:260px;padding:15px;
+    background:linear-gradient(135deg,#ff007f 0%,#9c27b0 100%);
+    color:white;font-size:17px;font-weight:900;border:none;border-radius:30px;cursor:pointer;
+    box-shadow:0 6px 20px rgba(255,0,127,0.8), 0 0 15px rgba(0,229,255,0.4);
+    animation:pulse 1.4s infinite;
+    margin-bottom: 10px;
+}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.04)}}
+
+/* CAPA DE EFECTO EDUCATIVO / MANCHAS DE PINTURA */
+#effect-overlay {
+    position: absolute; inset: 0; z-index: 35; pointer-events: none;
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+    padding: 30px; text-align: center; opacity: 0; transition: opacity 0.2s ease;
+}
+#effect-message {
+    background: rgba(0, 0, 0, 0.88); border: 3px solid #ff007f; padding: 20px; border-radius: 15px;
+    color: #fff; font-size: 15px; font-weight: bold; line-height: 1.6;
+    box-shadow: 0 0 35px rgba(0,0,0,0.9); max-width: 340px; transform: scale(0.9); transition: transform 0.2s ease;
+}
+
+.settings-box {
+    background: rgba(18, 4, 36, 0.95); border: 2px solid #ff007f; border-radius: 16px;
+    padding: 20px; width: 100%; max-width: 320px; box-shadow: 0 0 25px rgba(255, 0, 127, 0.5); text-align: left; color: #fff;
+}
+.setting-item { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; font-size: 14px; }
+.setting-item input[type="range"] { width: 140px; accent-color: #ff007f; }
+.setting-btn { background: #ff007f; border: none; color: white; padding: 6px 14px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 13px; }
+.setting-btn.off { background: #444; color: #aaa; }
+
+#hud{position:absolute;inset:0;pointer-events:none;z-index:5;display:flex;flex-direction:column;justify-content:space-between;padding:10px}
+.badge{background:rgba(20,10,35,0.92);border:2px solid #ff007f;padding:6px 12px;border-radius:12px;color:white;font-weight:bold;font-size:12px}
+#zone{position:absolute;top:6%;left:50%;transform:translateX(-50%);color:white;padding:5px 14px;border-radius:20px;font-weight:900;z-index:6;font-size:11px;background:#2196F3;transition:all 0.3s;display:none;}
+</style>
+</head>
+<body>
+<div id="game">
+    <div id="zone">ZONA 1: PASILLO</div>
+    <button id="btn-pause" onclick="pauseGame()">⏸️</button>
+
+    <!-- AUDIO AMBIENTAL DE FONDO (LOOP) -->
+    <audio id="bg-music" loop>
+        <source src="musica_carrera.mp3" type="audio/mpeg">
+    </audio>
+
+    <!-- CAPA DE EFECTOS EDUCATIVOS DE CHOQUE CON MANCHAS -->
+    <div id="effect-overlay">
+        <div id="effect-message">Mensaje Educativo</div>
+    </div>
+
+    <div id="start" class="screen">
+        <button id="btn-change-char" onclick="changeCharacter()" title="Cambiar Personaje">👤</button>
+        <button id="btn-settings" onclick="openSettings()">⚙️</button>
+        
+        <div class="menu-container">
+            <h1 class="game-title">RESISTE18</h1>
+            <p class="game-subtitle">"No corres para escapar.<br>Corres para llegar a quien quieres ser."</p>
+            
+            <div id="menu-record" class="record-badge">🏆 RÉCORD: 0m</div>
+
+            <div class="char-selector-box">
+                <img id="thumb-preview" src="personaje1.png" class="char-preview-thumb" alt="Personaje">
+                <span id="char-indicator" style="color:#00e5ff;font-size:12px;font-weight:bold;">Personaje: 1</span>
+            </div>
+
+            <div class="controls-hint"><span>⬅️ ➡️ Mover</span><span>⬆️ Saltar</span><span>⬇️ Agachar</span></div>
+            <button class="btn-jugar" id="btn-play-action">🎮 ¡JUGAR!</button>
+        </div>
+    </div>
+
+    <div id="pause-menu" class="screen hidden" style="z-index:40;">
+        <div class="menu-container">
+            <h2 style="color:#00e5ff; text-shadow:0 0 15px #00e5ff; font-size:32px; margin-bottom:20px;">JUEGO PAUSADO</h2>
+            <button class="btn-jugar" onclick="resumeGame()">▶️ Continuar</button>
+            <button class="btn-jugar" style="background:linear-gradient(135deg,#00e5ff 0%,#2196F3 100%);" onclick="restartGame()">🔄 Reiniciar Partida</button>
+            <button class="btn-jugar" style="background:linear-gradient(135deg,#555 0%,#222 100%);" onclick="returnToStart()">🏠 Volver al Inicio</button>
+        </div>
+    </div>
+
+    <div id="settings" class="screen hidden" style="z-index:30; background: rgba(5,1,10,0.92);">
+        <div class="menu-container">
+            <div class="settings-box">
+                <h2 style="color:#ff007f; text-align:center; margin-top:0;">⚙️ AJUSTES</h2>
+                
+                <div class="setting-item">
+                    <span>🔊 Música / Volumen:</span>
+                    <button id="btn-audio" class="setting-btn" onclick="toggleAudio()">ON</button>
+                </div>
+
+                <div class="setting-item" style="flex-direction: column; align-items: flex-start; gap: 5px;">
+                    <span>☀️ Brillo del fondo:</span>
+                    <input type="range" id="brightness-slider" min="0.3" max="1.5" step="0.1" value="1.0" oninput="changeBrightness(this.value)">
+                </div>
+
+                <div style="text-align: center; margin-top: 15px;">
+                    <button class="setting-btn" style="background:#00e5ff; color:#000; width:100%; margin-bottom: 8px;" onclick="showCredits()">📜 CRÉDITOS</button>
+                    <button class="btn-jugar" style="width:100%; padding: 10px; font-size:14px; animation:none; margin:0;" onclick="closeSettings()">VOLVER</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="credits" class="screen hidden" style="z-index:45; background: rgba(5,1,10,0.95);">
+        <div class="menu-container">
+            <div class="settings-box" style="text-align:center;">
+                <h2 style="color:#00e5ff; margin-top:0;">📜 CRÉDITOS</h2>
+                <p style="font-size: 13px; line-height: 1.6; color: #ddd;">
+                    <strong>RESISTE18</strong><br>
+                    Un juego diseñado para superar obstáculos y alcanzar tus metas.<br><br>
+                    Desarrollado con pasión y estilo Cyberpunk.
+                </p>
+                <button class="btn-jugar" style="width:100%; padding: 10px; font-size:14px; animation:none; margin-top:10px;" onclick="hideCredits()">CERRAR</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="over" class="screen hidden">
+        <div class="menu-container">
+            <h2 style="color:#00e5ff;text-shadow:0 0 15px #00e5ff;font-size:19px;line-height:1.5;">Te caíste. ¿Y qué?<br>Levántate y vuelve a correr.<br>Cada vez esquivas mejor.</h2>
+            <div id="new-record-alert" style="color:#ffcc00; font-weight:bold; font-size:18px; margin: 8px 0; text-shadow: 0 0 12px #ffcc00; display:none;">🎉 ¡NUEVO RÉCORD! 🎉</div>
+            <p id="final" style="color:white;text-align:center;font-size:15px;margin:10px 0;"></p>
+            <button class="btn-jugar" onclick="startGame()">VOLVER A INTENTAR</button>
+            <button class="btn-jugar" style="background:linear-gradient(135deg,#555 0%,#222 100%); margin-top:5px;" onclick="returnToStart()">🏠 VOLVER AL INICIO</button>
+        </div>
+    </div>
+
+    <div id="hud" style="display:none">
+        <div style="display:flex;justify-content:space-between">
+            <div class="badge" id="score">⭐ 0</div>
+            <div id="lives" style="display:flex;gap:6px;align-items:center"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between">
+            <div class="badge" id="dist">0m</div>
+            <div class="badge" id="speed">1.0x</div>
+        </div>
+    </div>
+
+    <canvas id="c"></canvas>
+</div>
+
+<script>
+const canvas = document.getElementById('c'), ctx = canvas.getContext('2d');
+canvas.width = 480; canvas.height = 854;
+
+const f1 = new Image(); f1.src = 'fondo1.jpeg';
+const f2 = new Image(); f2.src = 'fondo2.jpeg';
+const f3 = new Image(); f3.src = 'fondo3.jpeg';
+
+const S = {
+    hoja: new Image(), tussi: new Image(), perico: new Image(), vape: new Image(),
+    cuaderno: new Image(), lapiz: new Image(), mochila: new Image(), corazon: new Image(), personaje: new Image()
+};
+S.hoja.src = 'hoja.png'; S.tussi.src = 'tussi.png'; S.perico.src = 'perico.png'; S.vape.src = 'vaper.png';
+S.cuaderno.src = 'cuaderno.png'; S.lapiz.src = 'lapiz.png'; S.mochila.src = 'maleta.png';
+S.corazon.src = 'corazon.png'; S.personaje.src = 'personaje1.png';
+
+let selectedCharIndex = 1;
+let audioEnabled = true;
+let backgroundBrightness = 1.0;
+let isShowingEffect = false;
+
+// Configuración de Audio Web API para efectos de sonido sintéticos
+let audioCtx = null;
+function initAudioContext() {
+    if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+}
+
+// Sonido 2: Moneda / Puntos (Do agudo -> Mi agudo rápido C6 a E6)
+function playCoinSound() {
+    if (!audioEnabled) return;
+    initAudioContext();
+    let osc = audioCtx.createOscillator();
+    let gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(1046.50, audioCtx.currentTime); // C6
+    osc.frequency.exponentialRampToValueAtTime(1318.51, audioCtx.currentTime + 0.15); // E6
+    gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+    osc.connect(gain); gain.connect(audioCtx.destination);
+    osc.start(); osc.stop(audioCtx.currentTime + 0.15);
+}
+
+// Sonido 3: Salto (Whoosh corto + Pop suave)
+function playJumpSound() {
+    if (!audioEnabled) return;
+    initAudioContext();
+    let osc = audioCtx.createOscillator();
+    let gain = audioCtx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(200, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(600, audioCtx.currentTime + 0.2);
+    gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+    osc.connect(gain); gain.connect(audioCtx.destination);
+    osc.start(); osc.stop(audioCtx.currentTime + 0.2);
+}
+
+// Sonido 4: Agacharse / Deslizarse (Swish grave)
+function playSlideSound() {
+    if (!audioEnabled) return;
+    initAudioContext();
+    let osc = audioCtx.createOscillator();
+    let gain = audioCtx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(180, audioCtx.currentTime);
+    osc.frequency.linearRampToValueAtTime(60, audioCtx.currentTime + 0.3);
+    gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+    osc.connect(gain); gain.connect(audioCtx.destination);
+    osc.start(); osc.stop(audioCtx.currentTime + 0.3);
+}
+
+// Sonido 5: Choque / Game Over (Buzzer bajo + caída de tono)
+function playCrashSound() {
+    if (!audioEnabled) return;
+    initAudioContext();
+    let osc = audioCtx.createOscillator();
+    let gain = audioCtx.createGain();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(30, audioCtx.currentTime + 0.4);
+    gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+    osc.connect(gain); gain.connect(audioCtx.destination);
+    osc.start(); osc.stop(audioCtx.currentTime + 0.4);
+}
+
+let highRecord = localStorage.getItem('resiste18_record') || 0;
+document.getElementById('menu-record').innerText = `🏆 RÉCORD: ${Math.floor(highRecord)}m`;
+
+function changeCharacter() {
+    selectedCharIndex = selectedCharIndex === 1 ? 2 : 1;
+    let fileName = selectedCharIndex === 1 ? 'personaje1.png' : 'personaje2.png';
+    S.personaje.src = fileName;
+    document.getElementById('thumb-preview').src = fileName;
+    document.getElementById('char-indicator').innerText = `Personaje: ${selectedCharIndex}`;
+}
+
+function openSettings() { document.getElementById('settings').classList.remove('hidden'); }
+function closeSettings() { document.getElementById('settings').classList.add('hidden'); }
+function toggleAudio() {
+    audioEnabled = !audioEnabled;
+    let btn = document.getElementById('btn-audio');
+    let bgMusic = document.getElementById('bg-music');
+    if (audioEnabled) { 
+        btn.innerText = "ON"; btn.classList.remove('off'); 
+        if(state === 'PLAYING') bgMusic.play().catch(e => {});
+    }
+    else { 
+        btn.innerText = "OFF"; btn.classList.add('off'); 
+        bgMusic.pause();
+    }
+}
+function changeBrightness(val) { backgroundBrightness = parseFloat(val); }
+function showCredits() { document.getElementById('credits').classList.remove('hidden'); }
+function hideCredits() { document.getElementById('credits').classList.add('hidden'); }
+
+let state = 'START', score = 0, dist = 0, lives = 3, baseSpeed = 3.5, gameSpeed = 3.5;
+let spawnT = 0, zone = 0, runFrame = 0, runTimer = 0, time = 0, floorOff = 0, fade = 0, nextZone = -1;
+
+const zones = [
+    { name: "PASILLO", color: "#2196F3" },
+    { name: "COMEDOR", color: "#FF5722" },
+    { name: "BIBLIOTECA", color: "#4CAF50" }
+];
+
+const player = { lane: 1, targetLane: 1, x: 0, tx: 0, y: 0, vy: 0, jump: -18, g: 0.9, jumping: false, rolling: false, rollT: 0 };
+let obs = [], coins = [];
+
+function getFondo() { return zone == 0 ? f1 : zone == 1 ? f2 : f3; }
+function getNextFondo() { return nextZone == 0 ? f1 : nextZone == 1 ? f2 : f3; }
+
+function startGame() {
+    score = 0; dist = 0; lives = 3; gameSpeed = baseSpeed;
+    obs = []; coins = []; spawnT = 0; zone = 0; nextZone = -1; fade = 0; floorOff = 0;
+    player.lane = 1; player.targetLane = 1; player.x = 0; player.tx = 0; player.y = 0; player.vy = 0;
+    player.jumping = false; player.rolling = false;
+    isShowingEffect = false;
+    
+    document.getElementById('start').classList.add('hidden');
+    document.getElementById('over').classList.add('hidden');
+    document.getElementById('settings').classList.add('hidden');
+    document.getElementById('credits').classList.add('hidden');
+    document.getElementById('pause-menu').classList.add('hidden');
+    document.getElementById('effect-overlay').style.opacity = '0';
+    
+    document.getElementById('hud').style.display = 'flex';
+    document.getElementById('zone').style.display = 'block';
+    document.getElementById('btn-pause').style.display = 'flex';
+    
+    // Reproducir Música Ambiental al iniciar partida
+    if (audioEnabled) {
+        let bgMusic = document.getElementById('bg-music');
+        bgMusic.currentTime = 0;
+        bgMusic.play().catch(e => {});
+    }
+
+    state = 'PLAYING';
+    updateHearts();
+}
+
+function pauseGame() {
+    if (state === 'PLAYING' && !isShowingEffect) {
+        state = 'PAUSED';
+        document.getElementById('pause-menu').classList.remove('hidden');
+        document.getElementById('bg-music').pause();
+    }
+}
+function resumeGame() {
+    state = 'PLAYING';
+    document.getElementById('pause-menu').classList.add('hidden');
+    if (audioEnabled) document.getElementById('bg-music').play().catch(e => {});
+}
+function restartGame() { startGame(); }
+function returnToStart() {
+    state = 'START';
+    isShowingEffect = false;
+    document.getElementById('pause-menu').classList.add('hidden');
+    document.getElementById('over').classList.add('hidden');
+    document.getElementById('effect-overlay').style.opacity = '0';
+    document.getElementById('hud').style.display = 'none';
+    document.getElementById('zone').style.display = 'none';
+    document.getElementById('btn-pause').style.display = 'none';
+    document.getElementById('start').classList.remove('hidden');
+    document.getElementById('bg-music').pause();
+    
+    highRecord = localStorage.getItem('resiste18_record') || 0;
+    document.getElementById('menu-record').innerText = `🏆 RÉCORD: ${Math.floor(highRecord)}m`;
+}
+
+document.getElementById('btn-play-action').addEventListener('click', startGame);
+
+function triggerEducationalEffect(type) {
+    isShowingEffect = true;
+    playCrashSound(); // Sonido de choque
+    let overlay = document.getElementById('effect-overlay');
+    let msgBox = document.getElementById('effect-message');
+    
+    let colorBg = '';
+    let messageText = '';
+    
+    switch(type) {
+        case 'vape':
+            colorBg = 'rgba(70, 70, 70, 0.94)';
+            messageText = '💨 <strong>¡Cuidado con la Nicotina!</strong><br>Los vapeadores dañan tus pulmones, reducen tu capacidad física y generan fuerte dependencia química.';
+            break;
+        case 'tussi':
+            colorBg = 'rgba(255, 0, 127, 0.92)';
+            messageText = '🧪 <strong>¡Peligro: Mezcla Tóxica!</strong><br>El "tussi" es una combinación sintética altamente peligrosa que daña irreversiblemente tu sistema nervioso.';
+            break;
+        case 'hoja':
+            colorBg = 'rgba(34, 139, 34, 0.92)';
+            messageText = '🍃 <strong>¡Protege tu Memoria y Estudio!</strong><br>El consumo afecta la concentración, la retención de conocimientos y tu rendimiento académico.';
+            break;
+        case 'perico':
+            colorBg = 'rgba(235, 235, 235, 0.96)';
+            messageText = '⚡ <strong>¡Alto Riesgo Cardíaco!</strong><br>Las sustancias estimulantes aumentan drásticamente la presión arterial y el riesgo de infarto fulminante.';
+            break;
+        default:
+            colorBg = 'rgba(150, 0, 0, 0.92)';
+            messageText = '⚠️ <strong>¡Obstáculo Impactado!</strong><br>Cuida tu salud y mantén tus metas firmes.';
+    }
+    
+    overlay.style.background = colorBg;
+    msgBox.innerHTML = messageText;
+    overlay.style.opacity = '1';
+    msgBox.style.transform = 'scale(1)';
+    
+    setTimeout(() => {
+        overlay.style.opacity = '0';
+        msgBox.style.transform = 'scale(0.9)';
+        isShowingEffect = false;
+        
+        lives--;
+        updateHearts();
+        if (lives <= 0) {
+            gameOver();
+        }
+    }, 2600);
+}
+
+function gameOver() {
+    state = 'OVER';
+    document.getElementById('hud').style.display = 'none';
+    document.getElementById('zone').style.display = 'none';
+    document.getElementById('btn-pause').style.display = 'none';
+    document.getElementById('effect-overlay').style.opacity = '0';
+    document.getElementById('bg-music').pause();
+    
+    let currentDist = Math.floor(dist);
+    let alertBox = document.getElementById('new-record-alert');
+    
+    if (currentDist > highRecord) {
+        highRecord = currentDist;
+        localStorage.setItem('resiste18_record', highRecord);
+        alertBox.style.display = 'block';
+    } else {
+        alertBox.style.display = 'none';
+    }
+    
+    document.getElementById('final').innerHTML = `⭐ Puntuación: ${score} &nbsp;|&nbsp; 📏 Distancia: ${currentDist}m<br><span style="color:#ffcc00; font-size:14px;">🏆 Récord actual: ${Math.floor(highRecord)}m</span>`;
+    document.getElementById('over').classList.remove('hidden');
+}
+
+function spawn() {
+    spawnT++;
+    let r = Math.max(35, 75 - Math.floor(gameSpeed * 5));
+    if (spawnT > r) {
+        spawnT = 0;
+        let lane = Math.floor(Math.random() * 3);
+        if (Math.random() < 0.78) {
+            let jumpObstacles = ['hoja', 'perico', 'cuaderno', 'lapiz'];
+            let duckObstacles = ['tussi', 'vape', 'mochila'];
+            
+            let all = zone == 1 ? [...jumpObstacles, ...jumpObstacles, ...duckObstacles] : 
+                    zone == 2 ? [...duckObstacles, ...duckObstacles, ...jumpObstacles] : 
+                    [...jumpObstacles, ...duckObstacles];
+                    
+            let type = all[Math.floor(Math.random() * all.length)];
+            let isHigh = ['tussi', 'vape', 'mochila'].includes(type);
+            
+            obs.push({ lane, z: 900, type: type, high: isHigh, rot: Math.random() * 0.2 - 0.1 });
+        } else {
+            coins.push({ lane, z: 900 });
+        }
+    }
+}
+
+function changeLane(d) {
+    let nl = player.targetLane + d;
+    if (nl >= 0 && nl <= 2) player.targetLane = nl;
+}
+
+window.addEventListener('keydown', e => {
+    if (state !== 'PLAYING' || isShowingEffect) return;
+    if (e.key === 'ArrowLeft' || e.key === 'a') changeLane(-1);
+    else if (e.key === 'ArrowRight' || e.key === 'd') changeLane(1);
+    else if (e.key === 'ArrowUp' || e.key === 'w' || e.code === 'Space') {
+        if (!player.jumping) { player.vy = player.jump; player.jumping = true; playJumpSound(); }
+    } else if (e.key === 'ArrowDown' || e.key === 's') {
+        if (!player.jumping && !player.rolling) { player.rolling = true; player.rollT = 34; playSlideSound(); }
+    }
+});
+
+let sx = 0;
+canvas.addEventListener('touchstart', e => { sx = e.touches[0].clientX; }, { passive: false });
+canvas.addEventListener('touchend', e => {
+    if (state !== 'PLAYING' || isShowingEffect) return;
+    let dx = e.changedTouches[0].clientX - sx;
+    if (Math.abs(dx) > 28) {
+        changeLane(dx > 0 ? 1 : -1);
+    } else {
+        if (!player.jumping) { player.vy = player.jump; player.jumping = true; playJumpSound(); }
+    }
+}, { passive: false });
+
+function updateHearts() {
+    const b = document.getElementById('lives');
+    b.innerHTML = '';
+    for (let i = 0; i < 3; i++) {
+        let el = document.createElement('img');
+        el.src = 'corazon.png';
+        el.style.width = '38px'; el.style.height = '38px';
+        if (i >= lives) el.style.filter = 'grayscale(1) opacity(0.3)';
+        b.appendChild(el);
+    }
+}
+
+function update() {
+    if (state !== 'PLAYING' || isShowingEffect) return;
+    time += 0.016;
+    dist += gameSpeed * 0.13;
+    floorOff += gameSpeed * 3.5;
+    if (floorOff > 60) floorOff -= 60;
+
+    gameSpeed = baseSpeed + Math.min(dist * 0.0035, 5.0);
+
+    let nz = Math.floor(dist / 450) % 3;
+    if (nz !== zone && nextZone == -1) { nextZone = nz; fade = 0; }
+    if (nextZone != -1) {
+        fade += 0.025;
+        if (fade >= 1) {
+            zone = nextZone; nextZone = -1; fade = 0;
+            document.getElementById('zone').innerText = `ZONA ${zone + 1}: ${zones[zone].name}`;
+            document.getElementById('zone').style.background = zones[zone].color;
+        }
+    }
+
+    player.tx = (player.targetLane - 1) * 92;
+    player.x += (player.tx - player.x) * 0.22;
+    if (Math.abs(player.x - player.tx) < 2) player.lane = player.targetLane;
+
+    if (player.jumping) {
+        player.y += player.vy;
+        player.vy += player.g;
+        if (player.y >= 0) { player.y = 0; player.jumping = false; player.vy = 0; }
+    }
+    if (player.rolling) {
+        player.rollT--;
+        if (player.rollT <= 0) player.rolling = false;
+    }
+
+    runTimer++;
+    if (runTimer > 7) { runTimer = 0; runFrame = (runFrame + 1) % 3; }
+
+    for (let i = obs.length - 1; i >= 0; i--) {
+        let o = obs[i];
+        o.z -= gameSpeed * 2.9;
+        
+        if (o.z < 135 && o.z > 32 && o.lane === player.targetLane) {
+            let hit = false;
+            if (o.high) {
+                if (!player.rolling) hit = true;
+            } else {
+                if (!player.jumping) hit = true;
+            }
+
+            if (hit) {
+                let obstacleType = o.type;
+                obs.splice(i, 1);
+                triggerEducationalEffect(obstacleType);
+                break;
+            }
+        }
+        if (o.z < -100) { obs.splice(i, 1); score += 10; }
+    }
+
+    for (let i = coins.length - 1; i >= 0; i--) {
+        let c = coins[i];
+        c.z -= gameSpeed * 2.9;
+        if (c.z < 135 && c.z > 32 && c.lane === player.targetLane) {
+            score += 25; 
+            playCoinSound(); // Sonido de moneda
+            if (lives < 3) {
+                lives++;
+                updateHearts();
+            }
+            coins.splice(i, 1);
+        }
+        if (c.z < -100) coins.splice(i, 1);
+    }
+
+    spawn();
+    document.getElementById('score').innerText = `⭐ ${score}`;
+    document.getElementById('dist').innerText = `${Math.floor(dist)}m`;
+    document.getElementById('speed').innerText = (gameSpeed / baseSpeed).toFixed(1) + 'x';
+}
+
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    ctx.save();
+    ctx.filter = `brightness(${backgroundBrightness})`;
+    let fondo = getFondo();
+    if (fondo && fondo.complete) {
+        ctx.drawImage(fondo, 0, 0, canvas.width, canvas.height);
+        if (nextZone != -1 && getNextFondo() && getNextFondo().complete) {
+            ctx.globalAlpha = fade;
+            ctx.drawImage(getNextFondo(), 0, 0, canvas.width, canvas.height);
+            ctx.globalAlpha = 1;
+        }
+    }
+    ctx.restore();
+
+    let horizon = canvas.height * 0.41, bottom = canvas.height * 0.92;
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(canvas.width * 0.12, bottom);
+    ctx.lineTo(canvas.width * 0.88, bottom);
+    ctx.lineTo(canvas.width * 0.58, horizon + 20);
+    ctx.lineTo(canvas.width * 0.42, horizon + 20);
+    ctx.closePath();
+    ctx.clip();
+
+    for (let i = 0; i < 20; i++) {
+        let z = (i * 45 + floorOff) % 900;
+        let y = horizon + (bottom - horizon) * (1 - z / 900);
+        let s = 300 / (z + 300);
+        if (y > horizon + 10) {
+            ctx.fillStyle = 'rgba(255,255,255,0.7)';
+            ctx.fillRect(canvas.width / 2 - 2 * s, y, 4 * s, 12 * s);
+        }
+    }
+    ctx.restore();
+
+    [...coins].sort((a, b) => b.z - a.z).forEach(c => {
+        let s = 270 / (c.z + 270);
+        let x = canvas.width / 2 + (c.lane - 1) * 95 * s;
+        let y = horizon + (bottom - horizon) * (1 - c.z / 900);
+        if (S.corazon.complete) ctx.drawImage(S.corazon, x - 22 * s, y - 44 * s, 44 * s, 44 * s);
+    });
+
+    [...obs].sort((a, b) => b.z - a.z).forEach(o => {
+        let s = 300 / (o.z + 300);
+        let x = canvas.width / 2 + (o.lane - 1) * 95 * s;
+        let basey = horizon + (bottom - horizon) * (1 - o.z / 900);
+        
+        let y = o.high ? basey - (70 * s) : basey;
+        let sz = (o.type === 'mochila' || o.type === 'perico' ? 110 : 92) * s;
+        let im = S[o.type];
+        
+        if (im && im.complete) {
+            ctx.fillStyle = o.high ? 'rgba(0, 229, 255, 0.3)' : 'rgba(0, 0, 0, 0.5)';
+            ctx.beginPath();
+            ctx.ellipse(x, basey + 2, sz * (o.high ? 0.35 : 0.3), sz * 0.08, 0, 0, 6.28);
+            ctx.fill();
+
+            if (o.high) {
+                ctx.save();
+                ctx.strokeStyle = '#00ffff';
+                ctx.lineWidth = Math.max(6 * s, 4);
+                ctx.shadowColor = '#00e5ff';
+                ctx.shadowBlur = 12;
+                ctx.beginPath();
+                ctx.moveTo(x - sz * 0.6, y);
+                ctx.lineTo(x + sz * 0.6, y);
+                ctx.stroke();
+                ctx.restore();
+            }
+
+            ctx.save();
+            ctx.translate(x, y - sz / 2);
+            ctx.rotate(o.rot * (o.z < 200 ? 1.2 : 0.3));
+            ctx.drawImage(im, -sz / 2, -sz / 2, sz, sz);
+            ctx.restore();
+        }
+    });
+
+    let pX = canvas.width / 2 + player.x, pY = bottom - 106 + player.y;
+    if (S.personaje.complete) {
+        let fw = S.personaje.width / 3, sx = runFrame * fw;
+        if (player.rolling) sx = 2 * fw;
+        else if (player.jumping) sx = 1 * fw;
+        ctx.drawImage(S.personaje, sx, 0, fw, S.personaje.height, pX - 42, pY - 8, 84, 100);
+    }
+}
+
+function loop() {
+    update();
+    draw();
+    requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop)
+</script>
+</body>
+</html>
